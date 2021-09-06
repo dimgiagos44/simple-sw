@@ -80,6 +80,7 @@ func findNewStateObject(name string, r *Runtime) model.State {
 	return nil
 }
 
+//for typecasting reasons
 func handleTransition(ns model.State, r *Runtime) error {
 	switch ns.GetType(){
                 case "event":
