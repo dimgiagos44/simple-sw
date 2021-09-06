@@ -11,42 +11,41 @@ import (
 
 func handleEventState(state *model.EventState, r *Runtime) error {
 	fmt.Println("Event:", state.GetName())
-	//TODO 
+	//onEvents := state.OnEvents
+	//fmt.Println("onEvents = ", onEvents)
 	if (state.GetTransition() != nil) {
 		newStateName := state.Transition.NextState
 		ns := findNewStateObject(newStateName, r)
-		fmt.Println("New State = ", ns)
-		r.begin(ns)
+		handleTransition(ns, r)
+		return nil
+	} else {
+		fmt.Println("This is the end..")
 		return nil
 	}
-	fmt.Println("This is the end..")
-	return nil
 }
 
 func handleOperationState(state *model.OperationState, r *Runtime) error {
-	fmt.Println("Operation:", state.GetName())
-	// TODO
-	//dirty ifs here for now
+	fmt.Println("Operation: ", state.GetName())
+	if (state.ActionMode == "sequential"){
+		fmt.Println("This OperationState is sequential")
+	} else {
+		fmt.Println("This OperationState is parallel")
+	}
+
 	if (state.GetTransition() != nil) {
                 newStateName := state.Transition.NextState
                 ns := findNewStateObject(newStateName, r)
-                fmt.Println("New State = ", ns)
-        }
-	if (state.GetTransition() == nil) {
-		fmt.Println("this is the end..")
+		handleTransition(ns, r)
+		return nil
+        } else {
+		fmt.Println("This is the end..")
 		return nil
 	}
-	// Check for the action Mode (default: sequential)
-	if (state.ActionMode == "sequential") {
-		fmt.Println("This OperationState is sequential")
-		return nil
-	}
-	fmt.Println("This OperationState is parallel")
-	return nil
+
 }
 
 func handleInjectState(state *model.InjectState, r *Runtime) error {
-	fmt.Println("--> Current state Inject: ", state.GetName())
+	fmt.Println("Inject: ", state.GetName())
 	//injectFilter := state.GetStateDataFilter()
 	injectData := state.Data
 	fmt.Println("Data of inject state: ", injectData)
@@ -56,16 +55,18 @@ func handleInjectState(state *model.InjectState, r *Runtime) error {
 	if (state.GetTransition() != nil) {
 		newStateName  := state.Transition.NextState
 		ns := findNewStateObject(newStateName, r) //type of model.State
-		ns2 := ns.(*model.InjectState) //typecasting so as to be compatible
-		ns2.Data = injectData
-		fmt.Println("ns2 : ", ns2)
-		r.begin(ns2)
+		handleTransition(ns, r)
+		//ns2 := typecastingNewState(ns)
+		//ns2 := ns.(*model.InjectState) //typecasting so as to be compatible
+		//ns2.Data = injectData
+		//fmt.Println("ns2 : ", ns2)
+		//r.begin(ns2)
+		return nil
+	} else {
+		fmt.Println("This is the end..")
 		return nil
 	}
-	fmt.Println("This is the end..")
-	return nil
 }
-
 
 func findNewStateObject(name string, r *Runtime) model.State {
 	fmt.Println("Searching the next State by name.. ")
@@ -79,7 +80,30 @@ func findNewStateObject(name string, r *Runtime) model.State {
 	return nil
 }
 
+func handleTransition(ns model.State, r *Runtime) error {
+	switch ns.GetType(){
+                case "event":
+                        ns2 := ns.(*model.EventState)
+                        r.begin(ns2)
+                        return nil
+                case "operation":
+                        ns2 := ns.(*model.OperationState)
+                        r.begin(ns2)
+                        return nil
+                case "inject":
+                        ns2 := ns.(*model.InjectState)
+                        r.begin(ns2)
+                        return nil
+		case "switch": //needs additions for DataBased vs EventBased
+			ns2 := ns.(*model.DataBasedSwitchState)
+			r.begin(ns2)
+			return nil
+                }
+		return nil
+}
+
 func HandleDataBasedSwitch(state *model.DataBasedSwitchState, in []byte, r *Runtime) error {
+	fmt.Println("DataBasedSwitch: ", state.GetName())
 	for _, cond := range state.DataConditions {
 		fmt.Println(cond.GetCondition())
 		switch cond.(type) {
@@ -97,7 +121,8 @@ func HandleDataBasedSwitch(state *model.DataBasedSwitchState, in []byte, r *Runt
 				fmt.Println("GOTO", cond.(*model.TransitionDataCondition).Transition.NextState)
 				newStateName  := cond.(*model.TransitionDataCondition).Transition.NextState
 				ns := findNewStateObject(newStateName, r)
-				r.begin(ns)
+				handleTransition(ns, r)
+				//r.begin(ns)
 
 			} else {
 				fmt.Println("Not True")
